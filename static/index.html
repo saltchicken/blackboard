@@ -32,9 +32,11 @@
       gap: 8px;
       align-items: center;
       z-index: 1000;
+      transition: opacity 0.3s ease;
     }
 
-    #toolbar button {
+    #toolbar button,
+    #showToolbarBtn {
       background: #222;
       border: 1.5px solid #fff;
       color: #fff;
@@ -46,7 +48,8 @@
       user-select: none;
     }
 
-    #toolbar button:hover:not(:disabled) {
+    #toolbar button:hover:not(:disabled),
+    #showToolbarBtn:hover {
       background: #fff;
       color: #111;
     }
@@ -64,6 +67,14 @@
       border-radius: 4px;
       cursor: pointer;
     }
+
+    #showToolbarBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 999;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -74,7 +85,10 @@
     <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
     <button id="clearBtn" title="Clear the blackboard">Clear</button>
     <button id="fullscreenBtn" title="Toggle fullscreen">Fullscreen</button>
+    <button id="hideToolbarBtn" title="Hide toolbar">Hide</button>
   </div>
+
+  <button id="showToolbarBtn" title="Show toolbar">☰</button>
 
   <script>
     const canvas = document.getElementById('board');
@@ -83,6 +97,9 @@
     const clearBtn = document.getElementById('clearBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const colorPicker = document.getElementById('colorPicker');
+    const hideToolbarBtn = document.getElementById('hideToolbarBtn');
+    const showToolbarBtn = document.getElementById('showToolbarBtn');
+    const toolbar = document.getElementById('toolbar');
     const STORAGE_KEY = 'blackboard-image';
 
     let drawing = false;
@@ -97,14 +114,12 @@
         canvas.height = window.innerHeight;
         ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
         rect = canvas.getBoundingClientRect();
-
         ctx.strokeStyle = colorPicker.value;
       };
       if (!prevImage.src) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         rect = canvas.getBoundingClientRect();
-
         ctx.strokeStyle = colorPicker.value;
       }
     }
@@ -144,7 +159,7 @@
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         undoStack.push(saved);
         undoBtn.disabled = false;
-        ctx.strokeStyle = colorPicker.value; // Reapply color
+        ctx.strokeStyle = colorPicker.value;
       };
       img.src = saved;
     }
@@ -218,6 +233,16 @@
       } else {
         document.exitFullscreen();
       }
+    });
+
+    hideToolbarBtn.addEventListener('click', () => {
+      toolbar.style.display = 'none';
+      showToolbarBtn.style.display = 'block';
+    });
+
+    showToolbarBtn.addEventListener('click', () => {
+      toolbar.style.display = 'flex';
+      showToolbarBtn.style.display = 'none';
     });
 
     window.onload = restoreCanvas;
