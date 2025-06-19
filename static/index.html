@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Blackboard with Undo</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #111;
+      overflow: hidden;
+      font-family: sans-serif;
+      user-select: none;
+    }
+    canvas {
+      display: block;
+      background-color: #111;
+      touch-action: none;
+      cursor: crosshair;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #toolbar {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px;
+      border-radius: 8px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    #toolbar button {
+      background: #222;
+      border: 1.5px solid #0f0;
+      color: #0f0;
+      padding: 6px 12px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      user-select: none;
+    }
+    #toolbar button:hover:not(:disabled) {
+      background: #0f0;
+      color: #111;
+    }
+    #toolbar button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="board"></canvas>
+
+  <div id="toolbar">
+    <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
+    <button id="clearBtn" title="Clear the blackboard">Clear</button>
+    <!-- Add more buttons here -->
+  </div>
+
+  <script>
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d');
+    const clearBtn = document.getElementById('clearBtn');
+    const undoBtn = document.getElementById('undoBtn');
+
+    let drawing = false;
+
+    // Stack to hold canvas image states for undo
+    const undoStack = [];
+
+    function resize() {
+      // Save current drawing as image to restore after resize
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      ctx.putImageData(imgData, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+
+    const getPos = (e) => {
+      if (e.touches) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    };
+
+    // Save current canvas state for undo
+    function saveState() {
+      undoStack.push(canvas.toDataURL());
+      undoBtn.disabled = false;
+    }
+
+    const startDraw = (e) => {
+      e.preventDefault();
+      drawing = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    const draw = (e) => {
+      e.preventDefault();
+      if (!drawing) return;
+      const pos = getPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    };
+
+    const stopDraw = (e) => {
+      e?.preventDefault();
+      if (!drawing) return;
+      drawing = false;
+      ctx.closePath();
+
+      // Save canvas state after stroke finishes
+      saveState();
+    };
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseout', stopDraw);
+
+    canvas.addEventListener('touchstart', startDraw);
+    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', stopDraw);
+    canvas.addEventListener('touchcancel', stopDraw);
+
+    clearBtn.addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      undoStack.length = 0;    // clear undo history
+      undoBtn.disabled = true;
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if (undoStack.length === 0) return;
+
+      undoStack.pop(); // remove current state
+
+      if (undoStack.length === 0) {
+        // nothing to undo, clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        undoBtn.disabled = true;
+        return;
+      }
+
+      const imgDataUrl = undoStack[undoStack.length - 1];
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+      img.src = imgDataUrl;
+    });
+  </script>
+</body>
+</html>
