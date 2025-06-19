@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Persistent Blackboard with Color Picker</title>
+  <title>Persistent Blackboard</title>
   <style>
     html, body {
       margin: 0;
@@ -73,6 +73,7 @@
     <input type="color" id="colorPicker" title="Select drawing color" value="#ffffff" />
     <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
     <button id="clearBtn" title="Clear the blackboard">Clear</button>
+    <button id="fullscreenBtn" title="Toggle fullscreen">Fullscreen</button>
   </div>
 
   <script>
@@ -80,6 +81,7 @@
     const ctx = canvas.getContext('2d');
     const undoBtn = document.getElementById('undoBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
     const colorPicker = document.getElementById('colorPicker');
     const STORAGE_KEY = 'blackboard-image';
 
@@ -95,18 +97,22 @@
         canvas.height = window.innerHeight;
         ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
         rect = canvas.getBoundingClientRect();
+
+        ctx.strokeStyle = colorPicker.value;
       };
       if (!prevImage.src) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         rect = canvas.getBoundingClientRect();
+
+        ctx.strokeStyle = colorPicker.value;
       }
     }
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    ctx.strokeStyle = colorPicker.value; // default to white
+    ctx.strokeStyle = colorPicker.value;
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
 
@@ -138,9 +144,7 @@
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         undoStack.push(saved);
         undoBtn.disabled = false;
-
-        // Re-apply current color (important)
-        ctx.strokeStyle = colorPicker.value;
+        ctx.strokeStyle = colorPicker.value; // Reapply color
       };
       img.src = saved;
     }
@@ -204,6 +208,16 @@
         localStorage.setItem(STORAGE_KEY, prev);
       };
       img.src = prev;
+    });
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          alert(`Error: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
     });
 
     window.onload = restoreCanvas;
