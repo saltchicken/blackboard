@@ -2,22 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Blackboard with Undo</title>
+  <title>Persistent Blackboard with Color Picker</title>
   <style>
     html, body {
-      margin: 0; padding: 0; height: 100%;
+      margin: 0;
+      padding: 0;
+      height: 100%;
       background: #111;
       overflow: hidden;
       font-family: sans-serif;
       user-select: none;
     }
+
     canvas {
       display: block;
       background-color: #111;
       touch-action: none;
       cursor: crosshair;
-      width: 100vw;
-      height: 100vh;
     }
 
     #toolbar {
@@ -29,13 +30,14 @@
       border-radius: 8px;
       display: flex;
       gap: 8px;
+      align-items: center;
       z-index: 1000;
     }
 
     #toolbar button {
       background: #222;
-      border: 1.5px solid #0f0;
-      color: #0f0;
+      border: 1.5px solid #fff;
+      color: #fff;
       padding: 6px 12px;
       font-size: 14px;
       border-radius: 4px;
@@ -43,13 +45,24 @@
       transition: background 0.2s ease;
       user-select: none;
     }
+
     #toolbar button:hover:not(:disabled) {
-      background: #0f0;
+      background: #fff;
       color: #111;
     }
+
     #toolbar button:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+    }
+
+    #colorPicker {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -57,76 +70,104 @@
   <canvas id="board"></canvas>
 
   <div id="toolbar">
+    <input type="color" id="colorPicker" title="Select drawing color" value="#ffffff" />
     <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
     <button id="clearBtn" title="Clear the blackboard">Clear</button>
-    <!-- Add more buttons here -->
   </div>
 
   <script>
     const canvas = document.getElementById('board');
     const ctx = canvas.getContext('2d');
-    const clearBtn = document.getElementById('clearBtn');
     const undoBtn = document.getElementById('undoBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const colorPicker = document.getElementById('colorPicker');
+    const STORAGE_KEY = 'blackboard-image';
 
     let drawing = false;
+    let undoStack = [];
+    let rect = canvas.getBoundingClientRect();
 
-    // Stack to hold canvas image states for undo
-    const undoStack = [];
-
-    function resize() {
-      // Save current drawing as image to restore after resize
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-
-      ctx.putImageData(imgData, 0, 0);
+    function resizeCanvas() {
+      const prevImage = new Image();
+      prevImage.src = localStorage.getItem(STORAGE_KEY) || '';
+      prevImage.onload = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
+        rect = canvas.getBoundingClientRect();
+      };
+      if (!prevImage.src) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        rect = canvas.getBoundingClientRect();
+      }
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    ctx.strokeStyle = '#0f0';
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    ctx.strokeStyle = colorPicker.value; // default to white
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
 
-    const getPos = (e) => {
-      if (e.touches) {
-        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      }
-      return { x: e.clientX, y: e.clientY };
-    };
+    colorPicker.addEventListener('input', () => {
+      ctx.strokeStyle = colorPicker.value;
+    });
 
-    // Save current canvas state for undo
-    function saveState() {
-      undoStack.push(canvas.toDataURL());
-      undoBtn.disabled = false;
+    function getPos(e) {
+      const point = e.touches ? e.touches[0] : e;
+      return {
+        x: point.clientX - rect.left,
+        y: point.clientY - rect.top
+      };
     }
 
-    const startDraw = (e) => {
+    function saveState() {
+      const dataUrl = canvas.toDataURL();
+      undoStack.push(dataUrl);
+      undoBtn.disabled = false;
+      localStorage.setItem(STORAGE_KEY, dataUrl);
+    }
+
+    function restoreCanvas() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        undoStack.push(saved);
+        undoBtn.disabled = false;
+
+        // Re-apply current color (important)
+        ctx.strokeStyle = colorPicker.value;
+      };
+      img.src = saved;
+    }
+
+    function startDraw(e) {
       e.preventDefault();
       drawing = true;
-      const pos = getPos(e);
+      const { x, y } = getPos(e);
       ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-    };
+      ctx.moveTo(x, y);
+    }
 
-    const draw = (e) => {
+    function draw(e) {
+      if (!drawing) return;
       e.preventDefault();
-      if (!drawing) return;
-      const pos = getPos(e);
-      ctx.lineTo(pos.x, pos.y);
+      const { x, y } = getPos(e);
+      ctx.lineTo(x, y);
       ctx.stroke();
-    };
+    }
 
-    const stopDraw = (e) => {
-      e?.preventDefault();
+    function stopDraw(e) {
       if (!drawing) return;
+      e?.preventDefault();
       drawing = false;
       ctx.closePath();
-
-      // Save canvas state after stroke finishes
       saveState();
-    };
+    }
 
     canvas.addEventListener('mousedown', startDraw);
     canvas.addEventListener('mousemove', draw);
@@ -140,30 +181,32 @@
 
     clearBtn.addEventListener('click', () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      undoStack.length = 0;    // clear undo history
+      undoStack = [];
       undoBtn.disabled = true;
+      localStorage.removeItem(STORAGE_KEY);
     });
 
     undoBtn.addEventListener('click', () => {
       if (undoStack.length === 0) return;
-
-      undoStack.pop(); // remove current state
-
-      if (undoStack.length === 0) {
-        // nothing to undo, clear canvas
+      undoStack.pop();
+      const prev = undoStack[undoStack.length - 1];
+      if (!prev) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         undoBtn.disabled = true;
+        localStorage.removeItem(STORAGE_KEY);
         return;
       }
 
-      const imgDataUrl = undoStack[undoStack.length - 1];
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        localStorage.setItem(STORAGE_KEY, prev);
       };
-      img.src = imgDataUrl;
+      img.src = prev;
     });
+
+    window.onload = restoreCanvas;
   </script>
 </body>
 </html>
