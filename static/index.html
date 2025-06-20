@@ -29,10 +29,10 @@
       padding: 8px;
       border-radius: 8px;
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
       z-index: 1000;
-      transition: opacity 0.3s ease;
     }
 
     #toolbar button,
@@ -68,12 +68,21 @@
       cursor: pointer;
     }
 
+    #brushSize {
+      vertical-align: middle;
+    }
+
     #showToolbarBtn {
       position: fixed;
       top: 10px;
       right: 10px;
       z-index: 999;
       display: none;
+    }
+
+    label {
+      color: white;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -82,6 +91,12 @@
 
   <div id="toolbar">
     <input type="color" id="colorPicker" title="Select drawing color" value="#ffffff" />
+    
+    <label>
+      Size:
+      <input type="range" id="brushSize" min="1" max="20" value="3" />
+    </label>
+    
     <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
     <button id="clearBtn" title="Clear the blackboard">Clear</button>
     <button id="fullscreenBtn" title="Toggle fullscreen">Fullscreen</button>
@@ -96,9 +111,10 @@
     const undoBtn = document.getElementById('undoBtn');
     const clearBtn = document.getElementById('clearBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const colorPicker = document.getElementById('colorPicker');
     const hideToolbarBtn = document.getElementById('hideToolbarBtn');
     const showToolbarBtn = document.getElementById('showToolbarBtn');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSizeInput = document.getElementById('brushSize');
     const toolbar = document.getElementById('toolbar');
     const STORAGE_KEY = 'blackboard-image';
 
@@ -115,12 +131,14 @@
         ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
         rect = canvas.getBoundingClientRect();
         ctx.strokeStyle = colorPicker.value;
+        ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       };
       if (!prevImage.src) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         rect = canvas.getBoundingClientRect();
         ctx.strokeStyle = colorPicker.value;
+        ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       }
     }
 
@@ -128,11 +146,15 @@
     resizeCanvas();
 
     ctx.strokeStyle = colorPicker.value;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = parseInt(brushSizeInput.value, 10);
     ctx.lineCap = 'round';
 
     colorPicker.addEventListener('input', () => {
       ctx.strokeStyle = colorPicker.value;
+    });
+
+    brushSizeInput.addEventListener('input', () => {
+      ctx.lineWidth = parseInt(brushSizeInput.value, 10);
     });
 
     function getPos(e) {
@@ -160,6 +182,7 @@
         undoStack.push(saved);
         undoBtn.disabled = false;
         ctx.strokeStyle = colorPicker.value;
+        ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       };
       img.src = saved;
     }
