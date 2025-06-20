@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <title>Blackboard</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <meta name="theme-color" content="#111111" />
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registered:', reg.scope))
+        .catch(err => console.error('Service Worker registration failed:', err));
+    }
+  </script>
   <style>
     html, body {
       margin: 0;
@@ -124,23 +135,41 @@
     let isErasing = false;
     let lastColor = colorPicker.value;
     let undoStack = [];
-    let rect = canvas.getBoundingClientRect();
+    let rect;
 
     function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
       const prevImage = new Image();
       prevImage.src = localStorage.getItem(STORAGE_KEY) || '';
       prevImage.onload = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any transforms
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(prevImage, 0, 0, canvas.width / dpr, canvas.height / dpr);
+
         rect = canvas.getBoundingClientRect();
+
         setBrushColor();
         ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       };
+
       if (!prevImage.src) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+
         rect = canvas.getBoundingClientRect();
+
         setBrushColor();
         ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       }
@@ -150,7 +179,21 @@
       ctx.strokeStyle = isErasing ? '#111' : colorPicker.value;
     }
 
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      rect = canvas.getBoundingClientRect();
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      resizeCanvas();
+      rect = canvas.getBoundingClientRect();
+    });
+
+    window.addEventListener('orientationchange', () => {
+      resizeCanvas();
+      rect = canvas.getBoundingClientRect();
+    });
+
     resizeCanvas();
 
     ctx.lineCap = 'round';
@@ -190,7 +233,7 @@
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
         undoStack.push(saved);
         undoBtn.disabled = false;
         setBrushColor();
@@ -200,7 +243,7 @@
     }
 
     function startDraw(e) {
-      if (e.pointerType === 'touch') return; // ignore finger input
+      if (e.pointerType === 'touch') return; // ignore finger input if desired
       e.preventDefault();
       drawing = true;
       setBrushColor();
@@ -225,13 +268,13 @@
       saveState();
     }
 
-    // Pointer event listeners (works for pen, mouse, and optionally touch)
+    // Pointer event listeners
     canvas.addEventListener('pointerdown', startDraw);
     canvas.addEventListener('pointermove', draw);
     canvas.addEventListener('pointerup', stopDraw);
     canvas.addEventListener('pointercancel', stopDraw);
 
-    // Prevent context menu
+    // Prevent context menu on canvas
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     clearBtn.addEventListener('click', () => {
@@ -255,7 +298,7 @@
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
         localStorage.setItem(STORAGE_KEY, prev);
       };
       img.src = prev;
@@ -281,7 +324,10 @@
       showToolbarBtn.style.display = 'none';
     });
 
-    window.onload = restoreCanvas;
+    window.onload = () => {
+      restoreCanvas();
+      rect = canvas.getBoundingClientRect();
+    };
   </script>
 </body>
 </html>
