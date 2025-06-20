@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Persistent Blackboard</title>
+  <title>Blackboard with Stylus Support</title>
   <style>
     html, body {
       margin: 0;
@@ -153,7 +153,6 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    ctx.lineWidth = parseInt(brushSizeInput.value, 10);
     ctx.lineCap = 'round';
 
     colorPicker.addEventListener('input', () => {
@@ -172,10 +171,9 @@
     });
 
     function getPos(e) {
-      const point = e.touches ? e.touches[0] : e;
       return {
-        x: point.clientX - rect.left,
-        y: point.clientY - rect.top
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
       };
     }
 
@@ -202,6 +200,7 @@
     }
 
     function startDraw(e) {
+      if (e.pointerType === 'touch') return; // ignore finger input
       e.preventDefault();
       drawing = true;
       setBrushColor();
@@ -226,15 +225,11 @@
       saveState();
     }
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDraw);
-    canvas.addEventListener('mouseout', stopDraw);
-
-    canvas.addEventListener('touchstart', startDraw);
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', stopDraw);
-    canvas.addEventListener('touchcancel', stopDraw);
+    // Pointer event listeners (works for pen, mouse, and optionally touch)
+    canvas.addEventListener('pointerdown', startDraw);
+    canvas.addEventListener('pointermove', draw);
+    canvas.addEventListener('pointerup', stopDraw);
+    canvas.addEventListener('pointercancel', stopDraw);
 
     // Prevent context menu
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
