@@ -100,6 +100,7 @@
     <button id="undoBtn" title="Undo last stroke" disabled>Undo</button>
     <button id="clearBtn" title="Clear the blackboard">Clear</button>
     <button id="fullscreenBtn" title="Toggle fullscreen">Fullscreen</button>
+    <button id="eraserBtn" title="Toggle eraser mode">Eraser: OFF</button>
     <button id="hideToolbarBtn" title="Hide toolbar">Hide</button>
   </div>
 
@@ -113,12 +114,15 @@
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const hideToolbarBtn = document.getElementById('hideToolbarBtn');
     const showToolbarBtn = document.getElementById('showToolbarBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
     const colorPicker = document.getElementById('colorPicker');
     const brushSizeInput = document.getElementById('brushSize');
     const toolbar = document.getElementById('toolbar');
     const STORAGE_KEY = 'blackboard-image';
 
     let drawing = false;
+    let isErasing = false;
+    let lastColor = colorPicker.value;
     let undoStack = [];
     let rect = canvas.getBoundingClientRect();
 
@@ -130,31 +134,41 @@
         canvas.height = window.innerHeight;
         ctx.drawImage(prevImage, 0, 0, canvas.width, canvas.height);
         rect = canvas.getBoundingClientRect();
-        ctx.strokeStyle = colorPicker.value;
+        setBrushColor();
         ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       };
       if (!prevImage.src) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         rect = canvas.getBoundingClientRect();
-        ctx.strokeStyle = colorPicker.value;
+        setBrushColor();
         ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       }
+    }
+
+    function setBrushColor() {
+      ctx.strokeStyle = isErasing ? '#111' : colorPicker.value;
     }
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    ctx.strokeStyle = colorPicker.value;
     ctx.lineWidth = parseInt(brushSizeInput.value, 10);
     ctx.lineCap = 'round';
 
     colorPicker.addEventListener('input', () => {
-      ctx.strokeStyle = colorPicker.value;
+      lastColor = colorPicker.value;
+      if (!isErasing) ctx.strokeStyle = lastColor;
     });
 
     brushSizeInput.addEventListener('input', () => {
       ctx.lineWidth = parseInt(brushSizeInput.value, 10);
+    });
+
+    eraserBtn.addEventListener('click', () => {
+      isErasing = !isErasing;
+      setBrushColor();
+      eraserBtn.textContent = isErasing ? 'Eraser: ON' : 'Eraser: OFF';
     });
 
     function getPos(e) {
@@ -181,7 +195,7 @@
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         undoStack.push(saved);
         undoBtn.disabled = false;
-        ctx.strokeStyle = colorPicker.value;
+        setBrushColor();
         ctx.lineWidth = parseInt(brushSizeInput.value, 10);
       };
       img.src = saved;
@@ -190,6 +204,7 @@
     function startDraw(e) {
       e.preventDefault();
       drawing = true;
+      setBrushColor();
       const { x, y } = getPos(e);
       ctx.beginPath();
       ctx.moveTo(x, y);
@@ -220,6 +235,9 @@
     canvas.addEventListener('touchmove', draw);
     canvas.addEventListener('touchend', stopDraw);
     canvas.addEventListener('touchcancel', stopDraw);
+
+    // Prevent context menu
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     clearBtn.addEventListener('click', () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
